@@ -13,7 +13,6 @@ import { API_URL } from "../../lib/api";
 
 type MCQ = {
   id: number;
-  subtopic_id: number;
   question: string;
   option_a: string;
   option_b: string;
@@ -27,12 +26,25 @@ export default function MCQScreen() {
   const {
     subtopicId,
     topicId,
+    mcqId,
     subtopicName,
+    nextSubtopicId,
+    nextSubtopicName,
   } = useLocalSearchParams<{
     subtopicId: string;
     topicId: string;
+    mcqId?: string;
     subtopicName?: string;
+    nextSubtopicId?: string;
+    nextSubtopicName?: string;
   }>();
+
+  console.log("MCQ SCREEN");
+  console.log("SUBTOPIC ID:", subtopicId);
+  console.log("TOPIC ID:", topicId);
+  console.log("SUBTOPIC NAME:", subtopicName);
+  console.log("NEXT SUBTOPIC ID:", nextSubtopicId);
+  console.log("NEXT SUBTOPIC NAME:", nextSubtopicName);
 
   const [mcqs, setMcqs] = useState<MCQ[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -42,16 +54,10 @@ export default function MCQScreen() {
     useState<number[]>([]);
   const [score, setScore] = useState(0);
   const [completed, setCompleted] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  console.log("MCQ SCREEN");
-  console.log("SUBTOPIC ID:", subtopicId);
-  console.log("TOPIC ID:", topicId);
-  console.log("SUBTOPIC NAME:", subtopicName);
 
   useEffect(() => {
     if (!subtopicId) {
-      console.log("NO SUBTOPIC ID");
+      console.log("MISSING SUBTOPIC ID");
       return;
     }
 
@@ -60,18 +66,11 @@ export default function MCQScreen() {
 
     console.log("FETCHING MCQS:", mcqUrl);
 
-    setLoading(true);
-
     fetch(mcqUrl)
       .then((response) => {
-        console.log(
-          "MCQ RESPONSE STATUS:",
-          response.status
-        );
-
         if (!response.ok) {
           throw new Error(
-            `HTTP error: ${response.status}`
+            `MCQ HTTP error: ${response.status}`
           );
         }
 
@@ -82,6 +81,17 @@ export default function MCQScreen() {
 
         if (Array.isArray(data)) {
           setMcqs(data);
+
+          if (mcqId) {
+            const index = data.findIndex(
+              (item: MCQ) =>
+                item.id === Number(mcqId)
+            );
+
+            if (index !== -1) {
+              setCurrentIndex(index);
+            }
+          }
         } else {
           setMcqs([]);
         }
@@ -89,9 +99,6 @@ export default function MCQScreen() {
       .catch((error) => {
         console.log("MCQ FETCH ERROR:", error);
         setMcqs([]);
-      })
-      .finally(() => {
-        setLoading(false);
       });
 
     fetch(`${API_URL}/bookmarks/`)
@@ -111,32 +118,30 @@ export default function MCQScreen() {
           error
         );
       });
-  }, [subtopicId]);
-
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.loadingText}>
-          Loading MCQs...
-        </Text>
-      </View>
-    );
-  }
+  }, [subtopicId, mcqId]);
 
   if (mcqs.length === 0) {
     return (
       <View style={styles.loading}>
         <Text style={styles.loadingText}>
-          No MCQs available for this subtopic.
+          No MCQs available.
         </Text>
 
-        <Text style={styles.debugText}>
-          Subtopic ID: {subtopicId}
-        </Text>
+        <TouchableOpacity
+          style={styles.loadingButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.loadingButtonText}>
+            Go Back
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
+  /*
+   * FINAL SCREEN
+   */
   if (completed) {
     return (
       <View style={styles.finalScreen}>
@@ -175,23 +180,50 @@ export default function MCQScreen() {
             style={styles.secondaryButton}
             activeOpacity={0.8}
             onPress={() => {
-              router.back();
+              if (!nextSubtopicId) {
+                console.log(
+                  "NO NEXT SUBTOPIC ID"
+                );
+                return;
+              }
+
+              console.log(
+                "MOVING TO NEXT SUBTOPIC:",
+                nextSubtopicId,
+                nextSubtopicName
+              );
+
+              router.push({
+                pathname:
+                  "/study/[itemId]" as any,
+
+                params: {
+                  itemId:
+                    String(nextSubtopicId),
+
+                  topicId:
+                    String(topicId),
+
+                  subtopicName:
+                    String(
+                      nextSubtopicName || ""
+                    ),
+                },
+              });
             }}
           >
             <Text style={styles.secondaryButtonText}>
-              Back to Bones of Upper Limb
+              Continue to Next Bone
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.nextTopicButton}
-            activeOpacity={0.8}
-            onPress={() => {
-              router.push("/study/" as any);
-            }}
+            style={styles.backButton}
+            activeOpacity={0.7}
+            onPress={() => router.back()}
           >
-            <Text style={styles.nextTopicText}>
-              Continue to Next Topic →
+            <Text style={styles.backButtonText}>
+              Back
             </Text>
           </TouchableOpacity>
 
@@ -223,25 +255,20 @@ export default function MCQScreen() {
   const toggleBookmark = async () => {
     try {
       if (!bookmarkedIds.includes(mcq.id)) {
-        await fetch(
-          `${API_URL}/bookmarks/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              mcq_id: mcq.id,
-            }),
-          }
-        );
+        await fetch(`${API_URL}/bookmarks/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mcq_id: mcq.id,
+          }),
+        });
 
-        setBookmarkedIds(
-          (previous) => [
-            ...previous,
-            mcq.id,
-          ]
-        );
+        setBookmarkedIds((previous) => [
+          ...previous,
+          mcq.id,
+        ]);
       } else {
         await fetch(
           `${API_URL}/bookmarks/${mcq.id}`,
@@ -250,11 +277,10 @@ export default function MCQScreen() {
           }
         );
 
-        setBookmarkedIds(
-          (previous) =>
-            previous.filter(
-              (id) => id !== mcq.id
-            )
+        setBookmarkedIds((previous) =>
+          previous.filter(
+            (id) => id !== mcq.id
+          )
         );
       }
     } catch (error) {
@@ -268,168 +294,165 @@ export default function MCQScreen() {
   const nextQuestion = () => {
     setSelectedAnswer(null);
 
-    if (
-      currentIndex <
-      mcqs.length - 1
-    ) {
+    if (currentIndex < mcqs.length - 1) {
       setCurrentIndex(
-        (previousIndex) =>
-          previousIndex + 1
+        currentIndex + 1
       );
     } else {
       setCompleted(true);
     }
   };
 
-  const previousQuestion = () => {
-    setSelectedAnswer(null);
-
-    if (currentIndex > 0) {
-      setCurrentIndex(
-        (previousIndex) =>
-          previousIndex - 1
-      );
-    }
-  };
-
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={
-        styles.contentContainer
-      }
-      showsVerticalScrollIndicator={false}
-    >
-
-      <Text style={styles.title}>
-        Practice MCQs
-      </Text>
-
-      <Text style={styles.subtopic}>
-        {subtopicName}
-      </Text>
-
-      <Text style={styles.progressText}>
-        Question {currentIndex + 1}/{mcqs.length}
-      </Text>
-
-      <View style={styles.progressBarBackground}>
-        <View
-          style={[
-            styles.progressBar,
-            {
-              width: `${progress}%`,
-            },
-          ]}
-        />
-      </View>
-
-      <View style={styles.card}>
-
-        <Text style={styles.question}>
-          {mcq.question}
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={
+          styles.contentContainer
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>
+          Practice MCQs
         </Text>
 
-        <TouchableOpacity
-          style={styles.bookmarkButton}
-          activeOpacity={0.8}
-          onPress={toggleBookmark}
+        <Text style={styles.progressText}>
+          Question {currentIndex + 1}/
+          {mcqs.length}
+        </Text>
+
+        <View
+          style={
+            styles.progressBarBackground
+          }
         >
-          <Text style={styles.bookmarkText}>
-            {bookmarkedIds.includes(mcq.id)
-              ? "Bookmarked"
-              : "Bookmark"}
+          <View
+            style={[
+              styles.progressBar,
+              {
+                width: `${progress}%`,
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.card}>
+
+          <Text style={styles.question}>
+            {mcq.question}
           </Text>
-        </TouchableOpacity>
-
-        {[
-          ["A", mcq.option_a],
-          ["B", mcq.option_b],
-          ["C", mcq.option_c],
-          ["D", mcq.option_d],
-        ].map(([letter, text]) => {
-
-          const selected =
-            selectedAnswer === letter;
-
-          const correct =
-            mcq.correct_answer === letter;
-
-          return (
-            <TouchableOpacity
-              key={letter}
-              style={[
-                styles.option,
-
-                selected &&
-                correct &&
-                styles.correct,
-
-                selected &&
-                !correct &&
-                styles.wrong,
-              ]}
-              activeOpacity={0.8}
-              onPress={() =>
-                selectAnswer(letter)
-              }
-            >
-              <Text style={styles.optionText}>
-                {letter}. {text}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        {selectedAnswer && (
-          <View style={styles.answerBox}>
-
-            <Text style={styles.result}>
-              {selectedAnswer ===
-              mcq.correct_answer
-                ? "Correct Answer"
-                : `Wrong Answer · Correct: ${mcq.correct_answer}`}
-            </Text>
-
-            <Text style={styles.explanation}>
-              {mcq.explanation}
-            </Text>
-
-          </View>
-        )}
-
-        <View style={styles.navigationRow}>
-
-          {currentIndex > 0 && (
-            <TouchableOpacity
-              style={styles.previousButton}
-              activeOpacity={0.8}
-              onPress={previousQuestion}
-            >
-              <Text style={styles.previousText}>
-                Previous
-              </Text>
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
-            style={styles.nextButton}
-            activeOpacity={0.8}
-            onPress={nextQuestion}
+            style={styles.bookmarkButton}
+            onPress={toggleBookmark}
           >
-            <Text style={styles.nextText}>
-              {currentIndex ===
-              mcqs.length - 1
-                ? "Finish Quiz"
-                : "Next Question"}
+            <Text style={styles.bookmarkText}>
+              {bookmarkedIds.includes(mcq.id)
+                ? "Bookmarked"
+                : "Bookmark"}
             </Text>
           </TouchableOpacity>
 
+          {[
+            ["A", mcq.option_a],
+            ["B", mcq.option_b],
+            ["C", mcq.option_c],
+            ["D", mcq.option_d],
+          ].map((option: any) => {
+            const selected =
+              selectedAnswer === option[0];
+
+            const correct =
+              mcq.correct_answer ===
+              option[0];
+
+            return (
+              <TouchableOpacity
+                key={option[0]}
+                style={[
+                  styles.option,
+
+                  selected && correct
+                    ? styles.correct
+                    : null,
+
+                  selected && !correct
+                    ? styles.wrong
+                    : null,
+                ]}
+                onPress={() =>
+                  selectAnswer(option[0])
+                }
+              >
+                <Text
+                  style={styles.optionText}
+                >
+                  {option[0]}. {option[1]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {selectedAnswer && (
+            <View>
+              <Text style={styles.result}>
+                {selectedAnswer ===
+                mcq.correct_answer
+                  ? "Correct Answer"
+                  : `Wrong Answer. Correct answer: ${mcq.correct_answer}`}
+              </Text>
+
+              <Text
+                style={styles.explanation}
+              >
+                {mcq.explanation}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.navigationRow}>
+
+            {currentIndex > 0 && (
+              <TouchableOpacity
+                style={
+                  styles.previousButton
+                }
+                onPress={() => {
+                  setSelectedAnswer(null);
+
+                  setCurrentIndex(
+                    currentIndex - 1
+                  );
+                }}
+              >
+                <Text
+                  style={
+                    styles.previousText
+                  }
+                >
+                  Previous
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.nextButton}
+              onPress={nextQuestion}
+            >
+              <Text
+                style={styles.nextText}
+              >
+                {currentIndex ===
+                mcqs.length - 1
+                  ? "Finish Quiz"
+                  : "Next Question"}
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+
         </View>
-
-      </View>
-
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -441,7 +464,7 @@ const styles = StyleSheet.create({
 
   contentContainer: {
     padding: 30,
-    paddingTop: 75,
+    paddingTop: 70,
     paddingBottom: 50,
   },
 
@@ -450,55 +473,55 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
-    padding: 30,
   },
 
   loadingText: {
     color: "#fff",
     fontSize: 18,
-    textAlign: "center",
   },
 
-  debugText: {
-    color: "#555",
-    marginTop: 15,
+  loadingButton: {
+    marginTop: 20,
+    backgroundColor: "#fff",
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+
+  loadingButtonText: {
+    color: "#000",
+    fontWeight: "600",
   },
 
   title: {
     color: "#fff",
     fontSize: 34,
     fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  subtopic: {
-    color: "#666",
-    fontSize: 16,
-    marginBottom: 30,
+    marginBottom: 10,
   },
 
   progressText: {
     color: "#888",
-    fontSize: 15,
+    fontSize: 16,
     marginBottom: 12,
   },
 
   progressBarBackground: {
-    height: 7,
+    height: 8,
     backgroundColor: "#222",
     borderRadius: 10,
     marginBottom: 25,
   },
 
   progressBar: {
-    height: 7,
+    height: 8,
     backgroundColor: "#fff",
     borderRadius: 10,
   },
 
   card: {
     backgroundColor: "#111",
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#333",
     padding: 22,
@@ -508,24 +531,8 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 20,
     fontWeight: "600",
+    marginBottom: 25,
     lineHeight: 29,
-    marginBottom: 18,
-  },
-
-  bookmarkButton: {
-    alignSelf: "flex-end",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#444",
-    marginBottom: 18,
-  },
-
-  bookmarkText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
   },
 
   option: {
@@ -549,24 +556,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#7a1f1f",
   },
 
-  answerBox: {
-    marginTop: 10,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#333",
-  },
-
   result: {
     color: "#fff",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
+    marginTop: 20,
   },
 
   explanation: {
-    color: "#999",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 10,
+    color: "#aaa",
+    fontSize: 16,
+    marginTop: 15,
+    lineHeight: 23,
   },
 
   navigationRow: {
@@ -578,45 +579,61 @@ const styles = StyleSheet.create({
   previousButton: {
     flex: 1,
     backgroundColor: "#222",
-    borderWidth: 1,
-    borderColor: "#333",
-    paddingVertical: 17,
+    padding: 16,
     borderRadius: 30,
     alignItems: "center",
   },
 
   previousText: {
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   nextButton: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingVertical: 17,
+    padding: 16,
     borderRadius: 30,
     alignItems: "center",
   },
 
   nextText: {
     color: "#000",
-    fontSize: 14,
     fontWeight: "700",
   },
+
+  bookmarkButton: {
+    alignSelf: "flex-end",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#444",
+    marginBottom: 18,
+  },
+
+  bookmarkText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  /*
+   * FINAL SCREEN
+   */
 
   finalScreen: {
     flex: 1,
     backgroundColor: "#000",
     justifyContent: "center",
-    padding: 25,
+    paddingHorizontal: 25,
   },
 
   finalBox: {
     backgroundColor: "#111",
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: "#333",
-    borderRadius: 28,
     padding: 30,
     alignItems: "center",
   },
@@ -625,13 +642,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 28,
     fontWeight: "700",
-    letterSpacing: 1,
     textAlign: "center",
   },
 
   scoreSection: {
     alignItems: "center",
-    marginTop: 45,
+    marginTop: 40,
     marginBottom: 40,
   },
 
@@ -674,17 +690,19 @@ const styles = StyleSheet.create({
 
   secondaryButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
   },
 
-  nextTopicButton: {
-    marginTop: 25,
-    paddingVertical: 10,
+  backButton: {
+    width: "100%",
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 5,
   },
 
-  nextTopicText: {
-    color: "#fff",
+  backButtonText: {
+    color: "#666",
     fontSize: 14,
     fontWeight: "600",
   },

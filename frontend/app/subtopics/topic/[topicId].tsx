@@ -94,7 +94,7 @@ export default function SubtopicsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>
-          Subtopics
+          Contents
         </Text>
 
         {subtopics.length === 0 ? (

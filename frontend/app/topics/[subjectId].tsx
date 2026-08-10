@@ -2,7 +2,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  ScrollView,
 } from "react-native";
 
 import { useEffect, useState } from "react";
@@ -57,13 +57,17 @@ export default function TopicsScreen() {
   }, [subjectId]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.logo}>
         PhysioFlow
       </Text>
 
       <Text style={styles.title}>
-        Topics
+        Volumes
       </Text>
 
       {topics.map((topic) => (
@@ -91,7 +95,7 @@ export default function TopicsScreen() {
           </Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -99,8 +103,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
+  },
+
+  contentContainer: {
     padding: 30,
     paddingTop: 80,
+    paddingBottom: 50,
   },
 
   logo: {
