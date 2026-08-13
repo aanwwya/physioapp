@@ -8,6 +8,8 @@ class Topic(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
 
+    order = Column(Integer, nullable=False, default=0)
+
     subject_id = Column(
         Integer,
         ForeignKey("subjects.id"),

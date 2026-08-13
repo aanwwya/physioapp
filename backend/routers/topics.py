@@ -16,6 +16,7 @@ def get_topics(subject_id: int, db: Session = Depends(get_db)):
     return (
         db.query(Topic)
         .filter(Topic.subject_id == subject_id)
+        .order_by(Topic.order)
         .all()
     )
 

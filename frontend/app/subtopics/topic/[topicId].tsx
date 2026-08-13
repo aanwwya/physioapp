@@ -49,10 +49,9 @@ export default function SubtopicsScreen() {
         console.log("ALL SUBTOPICS:", data);
 
         if (Array.isArray(data)) {
-          // Only show top-level subtopics here.
-          // Children such as Clavicle, Scapula, etc.
-          // have a parent_id and will appear on the
-          // next screen instead.
+          // Only show top-level subtopics.
+          // Child subtopics such as Clavicle, Scapula, etc.
+          // are handled by the parent screen.
           const topLevelSubtopics = data.filter(
             (subtopic: Subtopic) =>
               subtopic.parent_id === null
@@ -113,36 +112,104 @@ export default function SubtopicsScreen() {
                   subtopic
                 );
 
-                // Introduction goes directly
-                // to MCQs / One-Liners.
+                /*
+                 * PHYSIOLOGY
+                 *
+                 * Physiology topic IDs are currently:
+                 * 8  General Physiology
+                 * 9  Blood
+                 * 10 Nerve Muscle Physiology
+                 * 11 Cardiovascular System
+                 * 12 Respiratory System
+                 * 13 Gastrointestinal System
+                 * 14 Excretory System
+                 * 15 CNS
+                 * 16 Special Senses
+                 * 17 Endocrinology
+                 * 18 Reproductive and Integrated Physiology
+                 *
+                 * These subtopics should directly open
+                 * the Study Options screen.
+                 */
                 if (
-                  subtopic.name
-                    .toLowerCase()
-                    .trim() === "introduction"
+                  Number(topicId) >= 8 &&
+                  Number(topicId) <= 18
                 ) {
+                  console.log(
+                    "PHYSIOLOGY SUBTOPIC → STUDY SCREEN"
+                  );
+
                   router.push({
                     pathname:
                       "/study/[itemId]" as any,
                     params: {
-                      itemId: String(subtopic.id),
-                      topicId: String(topicId),
-                      subtopicName: subtopic.name,
+                      itemId: String(
+                        subtopic.id
+                      ),
+                      topicId: String(
+                        topicId
+                      ),
+                      subtopicName:
+                        subtopic.name,
                     },
                   });
 
                   return;
                 }
 
-                // Parent subtopics such as
-                // "Bones of Upper Limb" open
-                // their individual bones.
+                /*
+                 * ANATOMY
+                 *
+                 * Introduction goes directly
+                 * to the Study Options screen.
+                 */
+                if (
+                  subtopic.name
+                    .toLowerCase()
+                    .trim() ===
+                  "introduction"
+                ) {
+                  router.push({
+                    pathname:
+                      "/study/[itemId]" as any,
+                    params: {
+                      itemId: String(
+                        subtopic.id
+                      ),
+                      topicId: String(
+                        topicId
+                      ),
+                      subtopicName:
+                        subtopic.name,
+                    },
+                  });
+
+                  return;
+                }
+
+                /*
+                 * ANATOMY PARENT SUBTOPICS
+                 *
+                 * Example:
+                 * Bones of Upper Limb
+                 *      ↓
+                 * Clavicle
+                 * Scapula
+                 * Humerus
+                 * etc.
+                 */
                 router.push({
                   pathname:
                     "/subtopics/parent/[parentId]" as any,
                   params: {
-                    parentId: String(subtopic.id),
-                    topicId: String(topicId),
-                    parentName: subtopic.name,
+                    parentId: String(
+                      subtopic.id
+                    ),
+                    topicId: String(
+                      topicId
+                    ),
+                    parentName:
+                      subtopic.name,
                   },
                 });
               }}
